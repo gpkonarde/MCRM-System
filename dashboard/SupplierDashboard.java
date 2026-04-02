@@ -33,7 +33,11 @@ public class SupplierDashboard {
                     break;
 
                 case 2:
-                    service.showSupplier();
+                    System.out.print("Enter supplier name: ");
+                    sc.nextLine();
+                    String supname = sc.nextLine();
+
+                    service.showSupplier(supname);
                     break;
 
                 case 3:

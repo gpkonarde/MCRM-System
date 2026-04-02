@@ -21,13 +21,31 @@ public class SuppliedDAO {
 
     // Getter
 
-    public void viewSupplier() throws Exception {
+    public void viewSupplierByName(String name) throws Exception {
+
         Connection con = DbConnection.getConnection();
 
-        ResultSet rs = con.createStatement().executeQuery("Select * from supplier");
+        String query = "SELECT * FROM supplier WHERE name LIKE ?";
+
+        PreparedStatement ps = con.prepareStatement(query);
+
+        ps.setString(1, "%" + name + "%"); // partial match
+
+        ResultSet rs = ps.executeQuery();
+
+        boolean found = false;
 
         while (rs.next()) {
-            System.out.println(rs.getInt("id") + " | " + rs.getString("name"));
+            found = true;
+            System.out.println(
+                    rs.getInt("id") + " | " +
+                            rs.getString("scode") + " | " +
+                            rs.getString("name") + " | " +
+                            rs.getString("contact"));
+        }
+
+        if (!found) {
+            System.out.println("No supplier found with this name");
         }
     }
 }

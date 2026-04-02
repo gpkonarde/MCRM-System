@@ -11,8 +11,8 @@ public class SupplierService {
         supplierDAO.addSupplier(name, contact);
     }
 
-    public void showSupplier() throws Exception {
-        supplierDAO.viewSupplier();
+    public void showSupplier(String name) throws Exception {
+        supplierDAO.viewSupplierByName(name);
     }
 
     public void showPendingOrder(int supplierId) throws Exception {

@@ -1,5 +1,6 @@
 package src;
 
+import dashboard.InventoryDashboard;
 import dashboard.SupplierDashboard;
 import java.util.Scanner;
 
@@ -12,7 +13,7 @@ public class Main {
         while (true) {
             System.out.println("\n====== MCRM SYSTEM ======");
             System.out.println("1. Supplier (Sourcing)");
-            System.out.println("2. Planning");
+            System.out.println("2. Inventory");
             System.out.println("3. Scheduling");
             System.out.println("4. Production");
             System.out.println("5. Dispatch");
@@ -31,7 +32,8 @@ public class Main {
                         break;
 
                     case 2:
-                        System.out.println("Planning Module (Coming Soon)");
+                        // Inventory Dashboard
+                        new InventoryDashboard().show();
                         break;
 
                     case 3:
