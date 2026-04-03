@@ -135,13 +135,14 @@ public class WorkOrderDAO {
             int resourceId = res.getInt("id");
 
             // ✅ Update ONLY if still PENDING (double safety)
-            String update = "UPDATE work_order SET line_id=?, assigned_resource_id=?, estimated_time=?, status='IN_PROGRESS' WHERE id=? AND status='PENDING'";
+            String update = "UPDATE work_order SET line_id=?, assigned_resource_id=?, estimated_time=?, remaining_time=?, status='IN_PROGRESS', last_modified=NOW() WHERE id=? AND status='PENDING'";
             PreparedStatement ps3 = con.prepareStatement(update);
 
             ps3.setInt(1, bestLine);
             ps3.setInt(2, resourceId);
             ps3.setInt(3, minTime);
-            ps3.setInt(4, workOrderId);
+            ps3.setInt(4, minTime);
+            ps3.setInt(5, workOrderId);
 
             int rows = ps3.executeUpdate();
 
@@ -246,6 +247,70 @@ public class WorkOrderDAO {
 
             if (!anyAssigned) {
                 System.out.println("No work orders assigned");
+            }
+
+            con.commit();
+
+        } catch (Exception e) {
+            con.rollback();
+            throw e;
+        } finally {
+            con.setAutoCommit(true);
+        }
+    }
+
+    public void updateWorkOrderProgress() throws Exception {
+
+        Connection con = DbConnection.getConnection();
+
+        try {
+            con.setAutoCommit(false);
+
+            // Get all IN_PROGRESS work orders
+            String query = "SELECT * FROM work_order WHERE status = 'IN_PROGRESS'";
+            ResultSet rs = con.createStatement().executeQuery(query);
+
+            while (rs.next()) {
+
+                int id = rs.getInt("id");
+                int remainingTime = rs.getInt("remaining_time");
+
+                java.sql.Timestamp lastModified = rs.getTimestamp("last_modified");
+                java.sql.Timestamp currentTime = new java.sql.Timestamp(System.currentTimeMillis());
+
+                // ⏱ Calculate time difference in minutes
+                long diffMillis = currentTime.getTime() - lastModified.getTime();
+                int minutesPassed = (int) (diffMillis / (1000 * 60));
+
+                int updatedRemaining = remainingTime - minutesPassed;
+
+                if (updatedRemaining <= 0) {
+
+                    // ✅ COMPLETE WORK ORDER
+                    String completeQuery = "UPDATE work_order SET status='COMPLETED', remaining_time=0 WHERE id=?";
+                    PreparedStatement ps1 = con.prepareStatement(completeQuery);
+                    ps1.setInt(1, id);
+                    ps1.executeUpdate();
+
+                    // ✅ FREE PRODUCTION LINE
+                    String freeLine = "UPDATE production_line SET status='ACTIVE' WHERE id=?";
+                    PreparedStatement ps2 = con.prepareStatement(freeLine);
+                    ps2.setInt(1, rs.getInt("line_id"));
+                    ps2.executeUpdate();
+
+                    System.out.println("✅ WO#" + id + " COMPLETED");
+
+                } else {
+
+                    // ✅ UPDATE remaining time
+                    String updateQuery = "UPDATE work_order SET remaining_time=?, last_modified=NOW() WHERE id=?";
+                    PreparedStatement ps3 = con.prepareStatement(updateQuery);
+                    ps3.setInt(1, updatedRemaining);
+                    ps3.setInt(2, id);
+                    ps3.executeUpdate();
+
+                    System.out.println("⏳ WO#" + id + " remaining: " + updatedRemaining + " mins");
+                }
             }
 
             con.commit();
