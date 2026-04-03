@@ -162,4 +162,99 @@ public class WorkOrderDAO {
             con.setAutoCommit(true);
         }
     }
+
+    public void autoScheduleWorkOrders() throws Exception {
+
+        Connection con = DbConnection.getConnection();
+
+        try {
+            con.setAutoCommit(false);
+
+            // ✅ Get all pending work orders sorted by priority
+            String woQuery = "SELECT * FROM work_order WHERE status = 'PENDING' " +
+                    "ORDER BY CASE " +
+                    "WHEN priority = 'HIGH' THEN 1 " +
+                    "WHEN priority = 'MEDIUM' THEN 2 " +
+                    "WHEN priority = 'LOW' THEN 3 END";
+
+            ResultSet workOrders = con.createStatement().executeQuery(woQuery);
+
+            boolean anyAssigned = false;
+
+            while (workOrders.next()) {
+
+                int workOrderId = workOrders.getInt("id");
+                int qty = workOrders.getInt("quantity");
+
+                // 🔍 Find best production line
+                String lineQuery = "SELECT * FROM production_line WHERE status = 'ACTIVE'";
+                ResultSet lines = con.createStatement().executeQuery(lineQuery);
+
+                int bestLine = -1;
+                int minTime = Integer.MAX_VALUE;
+
+                while (lines.next()) {
+                    int lineId = lines.getInt("id");
+                    int stdTime = lines.getInt("std_time");
+
+                    int time = stdTime * qty;
+
+                    if (time < minTime) {
+                        minTime = time;
+                        bestLine = lineId;
+                    }
+                }
+
+                if (bestLine == -1) {
+                    System.out.println("No active line for WO#" + workOrderId);
+                    continue;
+                }
+
+                // 🔍 Get resource
+                String resQuery = "SELECT id FROM resource WHERE line_id = ? LIMIT 1";
+                PreparedStatement ps2 = con.prepareStatement(resQuery);
+                ps2.setInt(1, bestLine);
+                ResultSet res = ps2.executeQuery();
+
+                if (!res.next()) {
+                    System.out.println("No resource for Line " + bestLine);
+                    continue;
+                }
+
+                int resourceId = res.getInt("id");
+
+                // ✅ Assign work order
+                String update = "UPDATE work_order SET line_id=?, assigned_resource_id=?, estimated_time=?, status='IN_PROGRESS' WHERE id=? AND status='PENDING'";
+                PreparedStatement ps3 = con.prepareStatement(update);
+
+                ps3.setInt(1, bestLine);
+                ps3.setInt(2, resourceId);
+                ps3.setInt(3, minTime);
+                ps3.setInt(4, workOrderId);
+
+                int rows = ps3.executeUpdate();
+
+                if (rows > 0) {
+                    anyAssigned = true;
+                    System.out.println("WO#" + workOrderId +
+                            " → Line " + bestLine +
+                            " | Time: " + minTime + " mins");
+                } else {
+                    System.out.println("Skipped WO#" + workOrderId);
+                }
+            }
+
+            if (!anyAssigned) {
+                System.out.println("No work orders assigned");
+            }
+
+            con.commit();
+
+        } catch (Exception e) {
+            con.rollback();
+            throw e;
+        } finally {
+            con.setAutoCommit(true);
+        }
+    }
 }

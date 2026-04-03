@@ -26,4 +26,8 @@ public class WorkOrderService {
         wDAO.assignWorkOrder(workOrderId);
     }
 
+    public void autoScheduleWorkOrders() throws Exception {
+        wDAO.autoScheduleWorkOrders();
+    }
+
 }
