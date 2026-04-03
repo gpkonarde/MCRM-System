@@ -3,6 +3,7 @@ package src;
 import dashboard.InventoryDashboard;
 import dashboard.ProductionDashboard;
 import dashboard.SupplierDashboard;
+import dao.*;
 import java.util.Scanner;
 
 public class Main {
@@ -44,7 +45,6 @@ public class Main {
                     case 4:
                         // Production Dashboard
                         new ProductionDashboard().show();
-                        // System.out.println("Production Module (Coming Soon)");
                         break;
 
                     case 5:

@@ -18,6 +18,7 @@ public class ProductionDashboard {
             System.out.println("4. Add Work Order");
             System.out.println("5. Assign Work Order");
             System.out.println("6. Auto Schedule All Pending Work Orders");
+            System.out.println("7. Update WO Progress");
             System.out.println("0. Back");
 
             int choice = sc.nextInt();
@@ -59,6 +60,8 @@ public class ProductionDashboard {
                 case 6:
                     service.autoScheduleWorkOrders();
                     break;
+                case 7:
+                    service.updateWOProgress();
                 case 0:
                     return;
             }

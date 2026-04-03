@@ -15,4 +15,5 @@ public class ProductService {
     public void addStocks(String product_name, int quantity) throws Exception {
         iDao.updateStock(product_name, quantity);
     }
+
 }

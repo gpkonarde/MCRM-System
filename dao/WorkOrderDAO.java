@@ -298,7 +298,7 @@ public class WorkOrderDAO {
                     ps2.setInt(1, rs.getInt("line_id"));
                     ps2.executeUpdate();
 
-                    System.out.println("✅ WO#" + id + " COMPLETED");
+                    System.out.println("WO#" + id + " COMPLETED");
 
                 } else {
 
@@ -309,7 +309,7 @@ public class WorkOrderDAO {
                     ps3.setInt(2, id);
                     ps3.executeUpdate();
 
-                    System.out.println("⏳ WO#" + id + " remaining: " + updatedRemaining + " mins");
+                    System.out.println("WO#" + id + " remaining: " + updatedRemaining + " mins");
                 }
             }
 

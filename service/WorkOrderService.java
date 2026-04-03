@@ -30,4 +30,7 @@ public class WorkOrderService {
         wDAO.autoScheduleWorkOrders();
     }
 
+    public void updateWOProgress() throws Exception {
+        wDAO.updateWorkOrderProgress();
+    }
 }
