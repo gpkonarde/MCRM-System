@@ -14,11 +14,10 @@ public class ProductionDashboard {
             System.out.println("\n=== PRODUCTION DASHBOARD ===");
             System.out.println("1. View Work Orders");
             System.out.println("2. View Production Lines");
-            System.out.println("3. View Resources");
-            System.out.println("4. Add Work Order");
-            System.out.println("5. Assign Work Order");
-            System.out.println("6. Auto Schedule All Pending Work Orders");
-            System.out.println("7. Update WO Progress");
+            System.out.println("3. Add Work Order");
+            System.out.println("4. Assign Work Order");
+            System.out.println("5. Auto Schedule All Pending Work Orders");
+            System.out.println("6. Update WO Progress");
             System.out.println("0. Back");
 
             int choice = sc.nextInt();
@@ -34,33 +33,36 @@ public class ProductionDashboard {
                     break;
 
                 case 3:
-                    service.viewResources();
+                    sc.nextLine();
+
+                    System.out.print("Work Order Name: ");
+                    String woName = sc.nextLine();
+
+                    System.out.print("Product ID: ");
+                    int prdId = sc.nextInt();
+
+                    System.out.print("Production Line ID: ");
+                    int plID = sc.nextInt();
+
+                    sc.nextLine();
+
+                    System.out.print("Priority (HIGH/MEDIUM/LOW): ");
+                    String priority = sc.nextLine();
+
+                    service.addWorkOrder(woName, prdId, plID, priority);
                     break;
 
                 case 4:
-                    System.out.print("Product ID: ");
-                    int pid = sc.nextInt();
-
-                    System.out.print("Quantity: ");
-                    int qty = sc.nextInt();
-
-                    System.out.print("Priority: ");
-                    sc.nextLine();
-                    String pr = sc.next();
-
-                    service.addWorkOrder(pid, qty, pr);
-                    break;
-
-                case 5:
+                    System.out.println();
                     System.out.print("Enter Work Order ID: ");
                     int wid = sc.nextInt();
 
                     service.assignWorkOrder(wid);
                     break;
-                case 6:
+                case 5:
                     service.autoScheduleWorkOrders();
                     break;
-                case 7:
+                case 6:
                     service.updateWOProgress();
                 case 0:
                     return;

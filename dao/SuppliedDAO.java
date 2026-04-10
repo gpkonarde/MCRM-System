@@ -9,7 +9,7 @@ public class SuppliedDAO {
     public void addSupplier(String name, String contact) throws Exception {
         Connection con = DbConnection.getConnection();
 
-        String query = "Insert into Supplier (name, contact) values (?,?)";
+        String query = "Insert into vendor (name, contact) values (?,?)";
         PreparedStatement ps = con.prepareStatement(query);
 
         ps.setString(1, name);
@@ -25,11 +25,11 @@ public class SuppliedDAO {
 
         Connection con = DbConnection.getConnection();
 
-        String query = "SELECT * FROM supplier WHERE name LIKE ?";
+        String query = "SELECT * FROM Vendor where name like ?";
 
         PreparedStatement ps = con.prepareStatement(query);
 
-        ps.setString(1, "%" + name + "%"); // partial match
+        ps.setString(1, "%" + name + "%");
 
         ResultSet rs = ps.executeQuery();
 
@@ -38,8 +38,8 @@ public class SuppliedDAO {
         while (rs.next()) {
             found = true;
             System.out.println(
-                    rs.getInt("id") + " | " +
-                            rs.getString("scode") + " | " +
+                    rs.getInt("hmy") + " | " +
+                            rs.getInt("vCode") + " | " +
                             rs.getString("name") + " | " +
                             rs.getString("contact"));
         }

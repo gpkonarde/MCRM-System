@@ -2,6 +2,7 @@ package src.config;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 
 public class DbConnection {
 
@@ -9,11 +10,15 @@ public class DbConnection {
     private static final String USER = "root";
     private static final String PASSWORD = "root";
 
-    public static Connection getConnection() throws Exception {
+    public static Connection getConnection() {
 
-        Class.forName("com.mysql.cj.jdbc.Driver");
+        try {
+            return DriverManager.getConnection(URL, USER, PASSWORD);
 
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+        } catch (SQLException e) {
+            System.out.println("Database connection failed!");
+            e.printStackTrace();
+            return null;
+        }
     }
-
 }

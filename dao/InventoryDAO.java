@@ -7,10 +7,7 @@ public class InventoryDAO {
     public void viewAllStocks() throws Exception {
         Connection con = DbConnection.getConnection();
 
-        String query = "Select p.name, i.quantity_available, p.type, p.price\n" + //
-                "from product p\n" + //
-                "inner join inventory i on p.id = i.product_id\n" + //
-                "order by p.name asc";
+        String query = "select p.name,i.quantity_available from product p inner join inventory i on p.hmy = i.hproduct;";
 
         ResultSet rs = con.createStatement().executeQuery(query);
 
@@ -26,8 +23,8 @@ public class InventoryDAO {
         Connection con = DbConnection.getConnection();
 
         String query = "UPDATE inventory i " +
-                "JOIN product p ON i.product_id = p.id " +
-                "SET i.quantity_available = i.quantity_available + ? " +
+                "JOIN product p ON i.hproduct = p.hmy " +
+                "SET i.quantity_available = ? " +
                 "WHERE p.name = ?";
 
         PreparedStatement ps = con.prepareStatement(query);

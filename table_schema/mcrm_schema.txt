@@ -1,0 +1,179 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS work_order;
+DROP TABLE IF EXISTS production_line;
+DROP TABLE IF EXISTS person;
+DROP TABLE IF EXISTS purchase_order;
+DROP TABLE IF EXISTS vendor_product;
+DROP TABLE IF EXISTS vendor;
+DROP TABLE IF EXISTS inventory;
+DROP TABLE IF EXISTS product;
+
+CREATE TABLE product (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    prdCode INT UNIQUE,
+    price DECIMAL(10,2) NOT NULL
+);
+
+-- Trigger for prdCode
+DELIMITER //
+CREATE TRIGGER trg_product_code
+BEFORE INSERT ON product
+FOR EACH ROW
+BEGIN
+    DECLARE newCode INT;
+    DECLARE done INT DEFAULT 0;
+
+    WHILE done = 0 DO
+        SET newCode = FLOOR(1000000 + RAND() * 9000000);
+
+        IF NOT EXISTS (SELECT 1 FROM product WHERE prdCode = newCode) THEN
+            SET done = 1;
+        END IF;
+    END WHILE;
+
+    SET NEW.prdCode = newCode;
+END//
+DELIMITER ;
+
+CREATE TABLE inventory (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    hproduct INT UNIQUE,
+    quantity_available INT DEFAULT 0,
+    dtLastModified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (hproduct) REFERENCES product(hmy)
+);
+
+CREATE TABLE vendor (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    vCode INT UNIQUE,
+    address TEXT,
+    contact VARCHAR(50),
+    hProduct int,
+    Foreign key (hproduct) References product(hmy)
+);
+
+-- Trigger for vCode
+DELIMITER //
+CREATE TRIGGER trg_vendor_code
+BEFORE INSERT ON vendor
+FOR EACH ROW
+BEGIN
+    DECLARE newCode INT;
+    DECLARE done INT DEFAULT 0;
+
+    WHILE done = 0 DO
+        SET newCode = FLOOR(1000000 + RAND() * 9000000);
+
+        IF NOT EXISTS (SELECT 1 FROM vendor WHERE vCode = newCode) THEN
+            SET done = 1;
+        END IF;
+    END WHILE;
+
+    SET NEW.vCode = newCode;
+END//
+DELIMITER ;
+
+CREATE TABLE purchase_order (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    po_name VARCHAR(255),
+    hVendor INT,
+    hProduct INT,
+    qt_purchased INT,
+    dtCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sStatus VARCHAR(50),
+    FOREIGN KEY (hVendor) REFERENCES vendor(hmy),
+    FOREIGN KEY (hProduct) REFERENCES product(hmy)
+);
+
+CREATE TABLE person (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    contact VARCHAR(50),
+    skill VARCHAR(255),
+    pCode INT UNIQUE
+);
+
+-- Trigger for pCode
+DELIMITER //
+CREATE TRIGGER trg_person_code
+BEFORE INSERT ON person
+FOR EACH ROW
+BEGIN
+    DECLARE newCode INT;
+    DECLARE done INT DEFAULT 0;
+
+    WHILE done = 0 DO
+        SET newCode = FLOOR(1000000 + RAND() * 9000000);
+
+        IF NOT EXISTS (SELECT 1 FROM person WHERE pCode = newCode) THEN
+            SET done = 1;
+        END IF;
+    END WHILE;
+
+    SET NEW.pCode = newCode;
+END//
+DELIMITER ;
+
+
+CREATE TABLE production_line (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    PL_Name VARCHAR(255),
+    pCode INT UNIQUE,
+    avg_time INT,
+    capacity INT,
+    hPerson INT UNIQUE,
+    dtLastModified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (hPerson) REFERENCES person(hmy)
+);
+
+-- Trigger for production_line pCode
+DELIMITER //
+CREATE TRIGGER trg_pline_code
+BEFORE INSERT ON production_line
+FOR EACH ROW
+BEGIN
+    DECLARE newCode INT;
+    DECLARE done INT DEFAULT 0;
+
+    WHILE done = 0 DO
+        SET newCode = FLOOR(1000000 + RAND() * 9000000);
+
+        IF NOT EXISTS (SELECT 1 FROM production_line WHERE pCode = newCode) THEN
+            SET done = 1;
+        END IF;
+    END WHILE;
+
+    SET NEW.pCode = newCode;
+END//
+DELIMITER ;
+
+CREATE TABLE work_order (
+    hmy INT AUTO_INCREMENT PRIMARY KEY,
+    wo_name VARCHAR(255),
+    hPLine INT UNIQUE,
+    hPerson INT UNIQUE,
+    status VARCHAR(50),
+    priority VARCHAR(50),
+    dtStart TIMESTAMP,
+    dtEnd TIMESTAMP,
+    remaining_time INT,
+    hProduct int,
+    dtLastModified TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (hPLine) REFERENCES production_line(hmy),
+    FOREIGN KEY (hPerson) REFERENCES person(hmy),
+    FOREIGN KEY (hProduct) REFERENCES product(hmy)
+);
+
+DELIMITER //
+CREATE TRIGGER trg_update_inventory
+AFTER INSERT ON purchase_order
+FOR EACH ROW
+BEGIN
+    UPDATE inventory
+    SET quantity_available = quantity_available + NEW.qt_purchased
+    WHERE hproduct = NEW.hProduct;
+END//
+DELIMITER ;

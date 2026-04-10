@@ -11,19 +11,32 @@ public class WorkOrderDAO {
 
         Connection con = DbConnection.getConnection();
 
-        String query = "SELECT wo.id, p.name, wo.quantity, wo.priority, wo.status " +
+        String query = "SELECT " +
+                "wo.wo_name, " +
+                "pl.pl_name, " +
+                "p.name AS person_name, " +
+                "pr.name AS product_name, " +
+                "wo.dtStart, " +
+                "wo.dtEnd, " +
+                "wo.remaining_time " +
                 "FROM work_order wo " +
-                "JOIN product p ON wo.product_id = p.id";
+                "INNER JOIN product pr ON pr.hmy = wo.hProduct " +
+                "INNER JOIN production_line pl ON pl.hmy = wo.hPLine " +
+                "INNER JOIN person p ON p.hmy = pl.hPerson;";
 
         ResultSet rs = con.createStatement().executeQuery(query);
 
         while (rs.next()) {
-            System.out.println(
-                    "WO#" + rs.getInt("id") + " | " +
-                            rs.getString("name") + " | Qty: " +
-                            rs.getInt("quantity") + " | Priority: " +
-                            rs.getString("priority") + " | Status: " +
-                            rs.getString("status"));
+            System.out.println();
+            System.out.println("------------- Work Order -------------");
+            System.out.println("WO Name      : " + rs.getString("wo_name"));
+            System.out.println("Production   : " + rs.getString("pl_name"));
+            System.out.println("Operator     : " + rs.getString("person_name"));
+            System.out.println("Product      : " + rs.getString("product_name"));
+            System.out.println("Start Date   : " + rs.getDate("dtStart"));
+            System.out.println("End Date     : " + rs.getDate("dtEnd"));
+            System.out.println("Remaining    : " + rs.getInt("remaining_time"));
+            System.out.println("--------------------------------------\n");
         }
     }
 
@@ -31,20 +44,26 @@ public class WorkOrderDAO {
 
         Connection con = DbConnection.getConnection();
 
-        ResultSet rs = con.createStatement().executeQuery(
-                "SELECT * FROM production_line");
+        String query = "SELECT " +
+                "pl.pcode AS line_code, " +
+                "pl.pl_name AS line_name, " +
+                "pl.capacity, " +
+                "pl.avg_time " +
+                "FROM production_line pl " +
+                "INNER JOIN person p ON p.hmy = pl.hperson;";
+
+        ResultSet rs = con.createStatement().executeQuery(query);
 
         while (rs.next()) {
             System.out.println(
-                    rs.getInt("id") + " | " +
-                            rs.getString("name") + " | Capacity: " +
-                            rs.getInt("capacity") + " | Status: " +
-                            rs.getString("status") + " | Time: " +
-                            rs.getInt("std_time") + " minutes");
+                    "Line Code: " + rs.getInt("line_code") + " | " +
+                            "Name: " + rs.getString("line_name") + " | " +
+                            "Capacity: " + rs.getInt("capacity") + " | " +
+                            "Avg Time: " + rs.getInt("avg_time") + " mins");
         }
     }
 
-    public void viewResources() throws Exception {
+    /* not working */ public void viewResources() throws Exception {
 
         Connection con = DbConnection.getConnection();
 
@@ -62,20 +81,24 @@ public class WorkOrderDAO {
         }
     }
 
-    public void addWorkOrder(int productId, int qty, String priority) throws Exception {
+    public void addWorkOrder(String woName, int productId, int pLineId, String priority) throws Exception {
 
         Connection con = DbConnection.getConnection();
 
-        String query = "INSERT INTO work_order (product_id, quantity, priority, status) VALUES (?, ?, ?, 'PENDING')";
+        String query = "INSERT INTO work_order " +
+                "(wo_name, hProduct, hPLine, priority, dtStart, dtEnd, remaining_time, status) " +
+                "VALUES (?, ?, ?, ?, NULL, NULL, 0, 'Pending')";
 
         PreparedStatement ps = con.prepareStatement(query);
-        ps.setInt(1, productId);
-        ps.setInt(2, qty);
-        ps.setString(3, priority);
+
+        ps.setString(1, woName);
+        ps.setInt(2, productId);
+        ps.setInt(3, pLineId);
+        ps.setString(4, priority);
 
         ps.executeUpdate();
 
-        System.out.println("✅ Work Order Created");
+        System.out.println("Work Order Created Successfully");
     }
 
     public void assignWorkOrder(int workOrderId) throws Exception {
@@ -83,81 +106,96 @@ public class WorkOrderDAO {
         Connection con = DbConnection.getConnection();
 
         try {
-            con.setAutoCommit(false); // ✅ Start transaction
+            con.setAutoCommit(false);
 
-            // ✅ Get ONLY pending work order
-            String woQuery = "SELECT * FROM work_order WHERE id = ? AND status = 'PENDING'";
+            // ✅ Get pending work order
+            String woQuery = "SELECT * FROM work_order WHERE hmy = ? AND status = 'Pending'";
             PreparedStatement ps1 = con.prepareStatement(woQuery);
             ps1.setInt(1, workOrderId);
             ResultSet wo = ps1.executeQuery();
 
             if (!wo.next()) {
-                System.out.println("❌ Work order not found OR already assigned");
+                System.out.println("❌ Work order not found or already assigned");
                 return;
             }
 
-            int qty = wo.getInt("quantity");
+            int productId = wo.getInt("hProduct");
 
-            // ✅ Get best production line
-            String lineQuery = "SELECT * FROM production_line WHERE status = 'ACTIVE'";
+            // ✅ Get available production lines (respect UNIQUE hPLine)
+            String lineQuery = "SELECT pl.hmy, pl.avg_time " +
+                    "FROM production_line pl " +
+                    "LEFT JOIN work_order wo ON wo.hPLine = pl.hmy AND wo.status = 'In Progress' " +
+                    "WHERE wo.hmy IS NULL";
+
             ResultSet lines = con.createStatement().executeQuery(lineQuery);
 
             int bestLine = -1;
             int minTime = Integer.MAX_VALUE;
 
             while (lines.next()) {
-                int lineId = lines.getInt("id");
-                int stdTime = lines.getInt("std_time");
-                int time = stdTime * qty;
+                int lineId = lines.getInt("hmy");
+                int avgTime = lines.getInt("avg_time");
 
-                if (time < minTime) {
-                    minTime = time;
+                if (avgTime < minTime) {
+                    minTime = avgTime;
                     bestLine = lineId;
                 }
             }
 
             if (bestLine == -1) {
                 System.out.println("❌ No available production line");
-                return;
-            }
-
-            // ✅ Get resource from that line
-            String resQuery = "SELECT id FROM resource WHERE line_id = ? LIMIT 1";
-            PreparedStatement ps2 = con.prepareStatement(resQuery);
-            ps2.setInt(1, bestLine);
-            ResultSet res = ps2.executeQuery();
-
-            if (!res.next()) {
-                System.out.println("❌ No resource available for selected line");
-                return;
-            }
-
-            int resourceId = res.getInt("id");
-
-            // ✅ Update ONLY if still PENDING (double safety)
-            String update = "UPDATE work_order SET line_id=?, assigned_resource_id=?, estimated_time=?, remaining_time=?, status='IN_PROGRESS', last_modified=NOW() WHERE id=? AND status='PENDING'";
-            PreparedStatement ps3 = con.prepareStatement(update);
-
-            ps3.setInt(1, bestLine);
-            ps3.setInt(2, resourceId);
-            ps3.setInt(3, minTime);
-            ps3.setInt(4, minTime);
-            ps3.setInt(5, workOrderId);
-
-            int rows = ps3.executeUpdate();
-
-            if (rows == 0) {
-                System.out.println("❌ Work order was already assigned by another process");
                 con.rollback();
                 return;
             }
 
-            con.commit(); // ✅ Success
+            // ✅ Get available person (respect UNIQUE hPerson)
+            String personQuery = "SELECT p.hmy " +
+                    "FROM person p " +
+                    "LEFT JOIN work_order wo ON wo.hPerson = p.hmy AND wo.status = 'In Progress' " +
+                    "WHERE wo.hmy IS NULL LIMIT 1";
 
-            System.out.println("✅ Assigned to Line " + bestLine + " | Time: " + minTime + " mins");
+            ResultSet persons = con.createStatement().executeQuery(personQuery);
+
+            if (!persons.next()) {
+                System.out.println("❌ No available person");
+                con.rollback();
+                return;
+            }
+
+            int personId = persons.getInt("hmy");
+
+            // ✅ Update work order
+            String update = "UPDATE work_order SET " +
+                    "hPLine = ?, " +
+                    "hPerson = ?, " +
+                    "remaining_time = ?, " +
+                    "dtStart = NOW(), " +
+                    "status = 'In Progress' " +
+                    "WHERE hmy = ? AND status = 'Pending'";
+
+            PreparedStatement ps3 = con.prepareStatement(update);
+
+            ps3.setInt(1, bestLine);
+            ps3.setInt(2, personId);
+            ps3.setInt(3, minTime);
+            ps3.setInt(4, workOrderId);
+
+            int rows = ps3.executeUpdate();
+
+            if (rows == 0) {
+                System.out.println("❌ Already assigned by another process");
+                con.rollback();
+                return;
+            }
+
+            con.commit();
+
+            System.out.println("✅ Assigned → Line: " + bestLine +
+                    " | Person: " + personId +
+                    " | Time: " + minTime + " mins");
 
         } catch (Exception e) {
-            con.rollback(); // ✅ Rollback on error
+            con.rollback();
             throw e;
         } finally {
             con.setAutoCommit(true);
@@ -171,12 +209,13 @@ public class WorkOrderDAO {
         try {
             con.setAutoCommit(false);
 
-            // ✅ Get all pending work orders sorted by priority
-            String woQuery = "SELECT * FROM work_order WHERE status = 'PENDING' " +
+            // ✅ Get pending work orders sorted by priority
+            String woQuery = "SELECT * FROM work_order WHERE status = 'Pending' " +
                     "ORDER BY CASE " +
-                    "WHEN priority = 'HIGH' THEN 1 " +
-                    "WHEN priority = 'MEDIUM' THEN 2 " +
-                    "WHEN priority = 'LOW' THEN 3 END";
+                    "WHEN priority = 'Critical' THEN 1 " +
+                    "WHEN priority = 'HIGH' THEN 2 " +
+                    "WHEN priority = 'MEDIUM' THEN 3 " +
+                    "WHEN priority = 'LOW' THEN 4 END";
 
             ResultSet workOrders = con.createStatement().executeQuery(woQuery);
 
@@ -184,61 +223,73 @@ public class WorkOrderDAO {
 
             while (workOrders.next()) {
 
-                int workOrderId = workOrders.getInt("id");
-                int qty = workOrders.getInt("quantity");
+                int workOrderId = workOrders.getInt("hmy");
+                String woName = workOrders.getString("wo_name");
 
-                // 🔍 Find best production line
-                String lineQuery = "SELECT * FROM production_line WHERE status = 'ACTIVE'";
+                // ✅ Get available production lines (not already in progress)
+                String lineQuery = "SELECT pl.hmy, pl.avg_time " +
+                        "FROM production_line pl " +
+                        "LEFT JOIN work_order wo ON wo.hPLine = pl.hmy AND wo.status = 'In Progress' " +
+                        "WHERE wo.hmy IS NULL";
+
                 ResultSet lines = con.createStatement().executeQuery(lineQuery);
 
                 int bestLine = -1;
                 int minTime = Integer.MAX_VALUE;
 
                 while (lines.next()) {
-                    int lineId = lines.getInt("id");
-                    int stdTime = lines.getInt("std_time");
+                    int lineId = lines.getInt("hmy");
+                    int avgTime = lines.getInt("avg_time");
 
-                    int time = stdTime * qty;
-
-                    if (time < minTime) {
-                        minTime = time;
+                    if (avgTime < minTime) {
+                        minTime = avgTime;
                         bestLine = lineId;
                     }
                 }
 
                 if (bestLine == -1) {
-                    System.out.println("No active line for WO#" + workOrderId);
+                    System.out.println("❌ No available line for WO#" + workOrderId);
                     continue;
                 }
 
-                // 🔍 Get resource
-                String resQuery = "SELECT id FROM resource WHERE line_id = ? LIMIT 1";
-                PreparedStatement ps2 = con.prepareStatement(resQuery);
-                ps2.setInt(1, bestLine);
-                ResultSet res = ps2.executeQuery();
+                // ✅ Get available person
+                String personQuery = "SELECT p.hmy " +
+                        "FROM person p " +
+                        "LEFT JOIN work_order wo ON wo.hPerson = p.hmy AND wo.status = 'In Progress' " +
+                        "WHERE wo.hmy IS NULL LIMIT 1";
 
-                if (!res.next()) {
-                    System.out.println("No resource for Line " + bestLine);
+                ResultSet persons = con.createStatement().executeQuery(personQuery);
+
+                if (!persons.next()) {
+                    System.out.println("❌ No available person for WO#" + workOrderId);
                     continue;
                 }
 
-                int resourceId = res.getInt("id");
+                int personId = persons.getInt("hmy");
 
                 // ✅ Assign work order
-                String update = "UPDATE work_order SET line_id=?, assigned_resource_id=?, estimated_time=?, status='IN_PROGRESS' WHERE id=? AND status='PENDING'";
-                PreparedStatement ps3 = con.prepareStatement(update);
+                String update = "UPDATE work_order SET " +
+                        "hPLine = ?, " +
+                        "hPerson = ?, " +
+                        "remaining_time = ?, " +
+                        "dtStart = NOW(), " +
+                        "status = 'In Progress' " +
+                        "WHERE hmy = ? AND status = 'Pending'";
 
-                ps3.setInt(1, bestLine);
-                ps3.setInt(2, resourceId);
-                ps3.setInt(3, minTime);
-                ps3.setInt(4, workOrderId);
+                PreparedStatement ps = con.prepareStatement(update);
 
-                int rows = ps3.executeUpdate();
+                ps.setInt(1, bestLine);
+                ps.setInt(2, personId);
+                ps.setInt(3, minTime);
+                ps.setInt(4, workOrderId);
+
+                int rows = ps.executeUpdate();
 
                 if (rows > 0) {
                     anyAssigned = true;
-                    System.out.println("WO#" + workOrderId +
+                    System.out.println("✅ WO#" + woName +
                             " → Line " + bestLine +
+                            " | Person " + personId +
                             " | Time: " + minTime + " mins");
                 } else {
                     System.out.println("Skipped WO#" + workOrderId);
@@ -266,50 +317,58 @@ public class WorkOrderDAO {
         try {
             con.setAutoCommit(false);
 
-            // Get all IN_PROGRESS work orders
-            String query = "SELECT * FROM work_order WHERE status = 'IN_PROGRESS'";
+            // ✅ Get all active work orders
+            String query = "SELECT * FROM work_order WHERE status = 'In Progress'";
             ResultSet rs = con.createStatement().executeQuery(query);
 
             while (rs.next()) {
 
-                int id = rs.getInt("id");
+                int id = rs.getInt("hmy");
+                String woName = rs.getString("wo_name");
                 int remainingTime = rs.getInt("remaining_time");
 
-                java.sql.Timestamp lastModified = rs.getTimestamp("last_modified");
+                java.sql.Timestamp lastModified = rs.getTimestamp("dtLastModified");
                 java.sql.Timestamp currentTime = new java.sql.Timestamp(System.currentTimeMillis());
 
-                // ⏱ Calculate time difference in minutes
+                // ⏱ Time difference in minutes
                 long diffMillis = currentTime.getTime() - lastModified.getTime();
                 int minutesPassed = (int) (diffMillis / (1000 * 60));
+
+                // Skip if no time passed
+                if (minutesPassed <= 0)
+                    continue;
+
+                minutesPassed = Math.min(minutesPassed, remainingTime);
 
                 int updatedRemaining = remainingTime - minutesPassed;
 
                 if (updatedRemaining <= 0) {
 
                     // ✅ COMPLETE WORK ORDER
-                    String completeQuery = "UPDATE work_order SET status='COMPLETED', remaining_time=0 WHERE id=?";
+                    String completeQuery = "UPDATE work_order SET " +
+                            "status='Completed', " +
+                            "remaining_time=0, " +
+                            "dtEnd = NOW() " +
+                            "WHERE hmy=?";
+
                     PreparedStatement ps1 = con.prepareStatement(completeQuery);
                     ps1.setInt(1, id);
                     ps1.executeUpdate();
 
-                    // ✅ FREE PRODUCTION LINE
-                    String freeLine = "UPDATE production_line SET status='ACTIVE' WHERE id=?";
-                    PreparedStatement ps2 = con.prepareStatement(freeLine);
-                    ps2.setInt(1, rs.getInt("line_id"));
-                    ps2.executeUpdate();
-
-                    System.out.println("WO#" + id + " COMPLETED");
+                    System.out.println("✅ WO#" + woName + " COMPLETED");
 
                 } else {
 
-                    // ✅ UPDATE remaining time
-                    String updateQuery = "UPDATE work_order SET remaining_time=?, last_modified=NOW() WHERE id=?";
-                    PreparedStatement ps3 = con.prepareStatement(updateQuery);
-                    ps3.setInt(1, updatedRemaining);
-                    ps3.setInt(2, id);
-                    ps3.executeUpdate();
+                    // ✅ UPDATE remaining time (dtLastModified auto-updates)
+                    String updateQuery = "UPDATE work_order SET remaining_time=? WHERE hmy=?";
 
-                    System.out.println("WO#" + id + " remaining: " + updatedRemaining + " mins");
+                    PreparedStatement ps2 = con.prepareStatement(updateQuery);
+                    ps2.setInt(1, updatedRemaining);
+                    ps2.setInt(2, id);
+                    ps2.executeUpdate();
+
+                    System.out.println("⏳ WO#" + woName +
+                            " remaining: " + updatedRemaining + " mins");
                 }
             }
 

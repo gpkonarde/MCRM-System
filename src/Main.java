@@ -3,21 +3,22 @@ package src;
 import dashboard.InventoryDashboard;
 import dashboard.ProductionDashboard;
 import dashboard.SupplierDashboard;
-import dao.*;
 import java.util.Scanner;
+import src.config.*;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
 
+        DbValidator.validate();
         Scanner sc = new Scanner(System.in);
 
         while (true) {
             System.out.println("\n====== MCRM SYSTEM ======");
-            System.out.println("1. Supplier (Sourcing)");
-            System.out.println("2. Inventory");
+            System.out.println("1. Supplier (NEW!!!)");
+            System.out.println("2. Inventory (NEW!!!)");
             System.out.println("3. Scheduling");
-            System.out.println("4. Production");
+            System.out.println("4. Production (NEW!!!)");
             System.out.println("5. Dispatch");
             System.out.println("0. Exit");
 
@@ -61,6 +62,7 @@ public class Main {
 
             } catch (Exception e) {
                 System.out.println("Error occurred: " + e.getMessage());
+
                 e.printStackTrace();
             }
         }

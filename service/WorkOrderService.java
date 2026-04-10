@@ -18,8 +18,8 @@ public class WorkOrderService {
         wDAO.viewResources();
     }
 
-    public void addWorkOrder(int productId, int qty, String priority) throws Exception {
-        wDAO.addWorkOrder(productId, qty, priority);
+    public void addWorkOrder(String woName, int productId, int pLineId, String priority) throws Exception {
+        wDAO.addWorkOrder(woName, productId, pLineId, priority);
     }
 
     public void assignWorkOrder(int workOrderId) throws Exception {
